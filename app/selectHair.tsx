@@ -10,9 +10,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { FontAwesome } from "@expo/vector-icons";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
-import HairCardItem from "@/components/HairCardItem";
 import Icon from "react-native-vector-icons/Ionicons";
-const Placeholder = require("../../assets/images/background-image.png");
 
 import { Dropdown } from "react-native-element-dropdown";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -23,21 +21,30 @@ import { Image } from "expo-image";
 import { useUser } from "@/context/UserContext";
 import { useBooking } from "@/context/BookingContext";
 import { ToastAndroid } from "react-native";
+
 const screenWidth = Dimensions.get("window").width;
-export default function HairList() {
+
+export default function SelectHair() {
   const router = useRouter();
-  const { gioi_tinh } = useLocalSearchParams<{ gioi_tinh: string }>();
+  const { gioi_tinh } = useLocalSearchParams();
   const gioi_tinh_parse = Array.isArray(gioi_tinh) ? gioi_tinh[0] : gioi_tinh;
   const [hairList, setHairList] = useState<Array<HairList>>([]);
   const [hairList2, setHairList2] = useState<Array<HairList>>([]);
   const { user, setUser } = useUser();
   const { booking, setBooking } = useBooking();
+  const { indexAdd } = useLocalSearchParams();
   const [modalVisible, setModalVisible] = useState(false);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [timeDuration, setTimeDuration] = useState(0);
   const [faceShape, setFaceShape] = useState<FaceShape[]>([]);
   const [faceShapeSelected, setFaceShapeSelected] = useState(0);
+
+  interface FaceShape {
+    id: number;
+    kieu_khuon_mat: string;
+    hinh_anh: string;
+  }
   interface HairList {
     id: number;
     ten_kieu_toc: string;
@@ -67,16 +74,6 @@ export default function HairList() {
       };
     }[];
   }
-  interface FaceShape {
-    id: number;
-    kieu_khuon_mat: string;
-    hinh_anh: string;
-  }
-
-  const [isFavorite, setIsFavorite] = useState(false); // Trạng thái yêu thích
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite); // Đổi trạng thái
-  };
 
   const isFocused = useIsFocused();
   const [timKiem, setTimKiem] = React.useState("");
@@ -84,6 +81,7 @@ export default function HairList() {
   // const [hairList, setHairList] = useState<Array<object>>([]);
   const [gender, setGender] = useState("");
 
+  
   const genderOptions = [
     { label: "Chọn tất cả", value: "" },
     { label: "Kiểu tóc nam", value: "Nam" },
@@ -96,19 +94,8 @@ export default function HairList() {
       `${API_BASE_URL}/api/customers/getAllHairStyles`
     );
     const data = await response.json();
-    
-    setHairList2(data.data);
-    if(gioi_tinh!=""){        
-      let filteredList = hairList2;
-      if (gioi_tinh !== "") {
-        filteredList = filteredList.filter(
-          (hairstyle) => hairstyle.gioi_tinh === gioi_tinh
-        );
-      }
-      setHairList(filteredList);
-    }else{      
     setHairList(data.data);
-    }
+    setHairList2(data.data);
   };
 
   const getFaceShape = async () => {
@@ -158,6 +145,46 @@ export default function HairList() {
     setModalVisible(false);
   };
 
+  const [selectedHairStyleId, setSelectedHairStyleId] = useState<number | null>(
+    Number(booking?.chi_tiet_phieu_dat[Number(indexAdd)].kieu_toc.id_kieu_toc)
+  );
+
+  const handleBooking = (item: HairList) => {
+    if (selectedHairStyleId === item.id) {
+      // Hủy chọn nếu chọn lại cùng kiểu tóc
+      setSelectedHairStyleId(null);
+      if (booking) {
+        const updatedChiTietPhieuDat = [...booking.chi_tiet_phieu_dat];
+        updatedChiTietPhieuDat[Number(indexAdd)] = {
+          ...updatedChiTietPhieuDat[Number(indexAdd)],
+          kieu_toc: {
+            id_kieu_toc: 0,
+            ten_kieu_toc: "",
+            gia: 0,
+            hinh_anh: "",
+          },
+        };
+        setBooking({ ...booking, chi_tiet_phieu_dat: updatedChiTietPhieuDat });
+      }
+    } else {
+      // Chọn kiểu tóc mới
+      setSelectedHairStyleId(item.id);
+      if (booking) {
+        const updatedChiTietPhieuDat = [...booking.chi_tiet_phieu_dat];
+        updatedChiTietPhieuDat[Number(indexAdd)] = {
+          ...updatedChiTietPhieuDat[Number(indexAdd)],
+          kieu_toc: {
+            id_kieu_toc: item.id,
+            ten_kieu_toc: item.ten_kieu_toc,
+            gia: Number(item.gia_tien),
+            hinh_anh: item.hinh_anh_kieu_toc[0].url_anh,
+          },
+        };
+        setBooking({ ...booking, chi_tiet_phieu_dat: updatedChiTietPhieuDat });
+      }
+    }
+  };
+
   const handleSearchByName = () => {
     let filteredList = hairList2;
     if (timKiem !== "") {
@@ -177,21 +204,19 @@ export default function HairList() {
   };
 
   useEffect(() => {
+    if (isFocused) {
+      if (gioi_tinh_parse) {
+        setGender(gioi_tinh_parse);
+      }
+      getHairList();
+    }
+  }, [isFocused]);
+
+  useEffect(() => {
     handleSearchByName();
   }, [timKiem]);
 
   useEffect(() => {
-    if (isFocused) {
-      // setGender("");
-        console.log("gioi_tinh", gioi_tinh);
-      getHairList();
-      if (gioi_tinh) {
-        setGender(gioi_tinh);
-      }
-    }
-  }, [isFocused]);
-  useEffect(() => {
-    router.setParams({ gioi_tinh: gender });
     handleFilter();
   }, [gender]);
 
@@ -347,6 +372,12 @@ export default function HairList() {
                 </View>
               </Modal>
               <View style={{ flexDirection: "row" }}>
+                <TouchableOpacity
+                  style={styles.btnBack}
+                  onPress={() => router.back()}
+                >
+                  <Icon name="arrow-back-outline" size={30} color="#555" />
+                </TouchableOpacity>
                 <View style={styles.searchBar}>
                   <Icon name="search" size={20} color="#555" />
                   <TextInput
@@ -357,24 +388,6 @@ export default function HairList() {
                     onChangeText={(text) => setTimKiem(text)}
                   />
                 </View>
-                <TouchableOpacity
-                  style={styles.btnFaceScan}
-                  onPress={() => {
-                    if (user === null) {
-                      ToastAndroid.show(
-                        "Vui lòng đăng nhập để sử dụng tính năng này",
-                        2000
-                      );
-                    } else {
-                      router.push("/pickFace");
-                    }
-                  }}
-                >
-                  <Icon name="camera" size={20} color="#555" />
-                  <Text style={{ fontSize: 12, fontWeight: "600" }}>
-                    Nhận gợi ý
-                  </Text>
-                </TouchableOpacity>
               </View>
               <View style={{ flexDirection: "row" }}>
                 {/* Drop down box chọn kiểu tóc theo giới tính */}
@@ -437,10 +450,7 @@ export default function HairList() {
             <View style={{ marginLeft: 10, marginTop: 10 }}>
               <TouchableOpacity
                 onPress={() =>
-                  router.push({
-                    pathname: "/hairDetail",
-                    params: { item: JSON.stringify(item) },
-                  })
+                  console.log(booking?.chi_tiet_phieu_dat[0].kieu_toc)
                 }
                 style={styles.cardContainer}
               >
@@ -472,76 +482,24 @@ export default function HairList() {
 
                   {/* Biểu tượng đặt lịch hẹn */}
                   <TouchableOpacity
-                    // onPress={() => router.push("/bookAppt")}
-                    //in ra thong tin cua kieu toc
-                    onPress={() => {
-                      if (user === null) {
-                        router.push("/login");
-                      } else {
-                        if (booking) {
-                          // Tạo bản sao của chi_tiet_phieu_dat
-                          const updatedChiTietPhieuDat = [
-                            ...booking.chi_tiet_phieu_dat,
-                          ];
-                          // Cập nhật kiểu tóc cho phần tử đầu tiên
-                          if (updatedChiTietPhieuDat[0]) {
-                            updatedChiTietPhieuDat[0] = {
-                              ...updatedChiTietPhieuDat[0], // Giữ nguyên các thuộc tính khác
-                              kieu_toc: {
-                                id_kieu_toc: item.id, // Cập nhật id kiểu tóc
-                                ten_kieu_toc: item.ten_kieu_toc,
-                                gia: Number(item.gia_tien),
-                                hinh_anh: item.hinh_anh_kieu_toc[0].url_anh,
-                              }, // Cập nhật kieu_toc
-                            };
-                          }
-                          // Cập nhật lại booking với chi_tiet_phieu_dat mới
-                          setBooking({
-                            ...booking, // Giữ nguyên các thuộc tính khác của booking
-                            chi_tiet_phieu_dat: updatedChiTietPhieuDat, // Gán chi_tiet_phieu_dat mới
-                          });
-                        } else {
-                          const now = new Date();
-                          const today = new Date(
-                            now.getTime() + 7 * 60 * 60 * 1000
-                          );
-
-                          const tomorow = new Date();
-                          tomorow.setDate(tomorow.getDate() + 1);
-                          const data = {
-                            id_tai_khoan: user.id,
-                            ngay_hen: tomorow,
-                            gio_hen: "",
-                            phuong_thuc_thanh_toan: "Tiền mặt",
-                            tong_tien: 0,
-                            thoi_gian_dat: today,
-                            chi_tiet_phieu_dat: [
-                              {
-                                ten_khach_hang: user.ho_ten,
-                                kieu_toc: {
-                                  id_kieu_toc: 0,
-                                  ten_kieu_toc: "",
-                                  gia: 0,
-                                  hinh_anh: "",
-                                },
-                                dich_vu: [
-                                  {
-                                    id_dich_vu: 0,
-                                    ten_dich_vu: "",
-                                    phi_dich_vu: 0,
-                                  },
-                                ],
-                              },
-                            ],
-                          };
-                          setBooking(data);
-                        }
-                        router.push("/bookAppt");
-                      }
-                    }}
-                    style={styles.iconBookingContainer}
+                    onPress={() => handleBooking(item)}
+                    style={[
+                      styles.iconBookingContainer,
+                      {
+                        backgroundColor:
+                          selectedHairStyleId === item.id
+                            ? "lightgreen"
+                            : "#FFA500",
+                      },
+                    ]}
                   >
-                    <Icon name="calendar" size={20} color="#fff" />
+                    <Icon
+                      name={
+                        selectedHairStyleId === item.id ? "checkmark" : "add"
+                      } // Đổi biểu tượng
+                      size={20}
+                      color="#fff"
+                    />
                   </TouchableOpacity>
                 </View>
                 {/* </View> */}
@@ -550,40 +508,6 @@ export default function HairList() {
           )}
         />
       </SafeAreaView>
-      <>
-        <TouchableOpacity
-          onPress={
-            // Kiểm tra nếu user null thì chuyển hướng đến trang đăng nhập
-            () => {
-              if (user === null) {
-                router.push("/login");
-              } else {
-                router.push("/bookAppt");
-              }
-            }
-          }
-          style={{
-            position: "absolute",
-            bottom: 10,
-            right: 10,
-            alignItems: "center",
-            justifyContent: "center",
-            alignContent: "center",
-            width: 65,
-            height: 65,
-            borderRadius: 50,
-            backgroundColor: "#E38E49",
-          }}
-        >
-          <Icon
-            style={{}}
-            name="document-text-outline"
-            size={30}
-            color="#fff"
-          />
-          <Text style={{ color: "#fff", fontSize: 12 }}>Đặt lịch</Text>
-        </TouchableOpacity>
-      </>
     </SafeAreaProvider>
   );
 }
@@ -609,16 +533,12 @@ const styles = StyleSheet.create({
     color: "#333",
     fontSize: 16,
   },
-  btnFaceScan: {
+  btnBack: {
     alignItems: "center",
     backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    padding: 10,
     marginVertical: 10,
     marginRight: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
   },
   dropdown: {
     flex: 1,
@@ -695,21 +615,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFA500",
     padding: 10,
     borderRadius: 20,
-  },
-  badge: {
-    width: 20,
-    height: 20,
-    position: "absolute",
-    top: -10,
-    right: -10,
-    backgroundColor: "red",
-    borderRadius: 10,
-    padding: 3,
-  },
-  badgeText: {
-    textAlign: "center",
-    color: "#fff",
-    fontSize: 10,
   },
   modalBackground: {
     flex: 1,

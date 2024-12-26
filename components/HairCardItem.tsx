@@ -1,3 +1,5 @@
+import { useBooking } from "@/context/BookingContext";
+import { useUser } from "@/context/UserContext";
 import { Image } from "expo-image";
 import { Link, useRouter } from "expo-router";
 import { useState } from "react";
@@ -7,13 +9,13 @@ import { StyleSheet } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 
 // [{"createdAt": null, "gia_tien": "150000", "gioi_tinh": "Nam", "hinh_anh_kieu_toc": [[Object], [Object], [Object]],
-//  "id": 1, "kieu_toc_phu_hop": [[Object], [Object]], "mo_ta": "Kiểu tóc dài hiện đại", 
+//  "id": 1, "kieu_toc_phu_hop": [[Object], [Object]], "mo_ta": "Kiểu tóc dài hiện đại",
 // "ten_kieu_toc": "Tóc dài", "updatedAt": "2024-11-28T08:13:31.000Z"},
 
 interface HairCardItemProps {
   id: number;
   ten_kieu_toc: string;
-  gia_tien: string;
+  gia_tien: number;
   mo_ta: string;
   gioi_tinh: string;
   thoi_luong: number;
@@ -40,7 +42,6 @@ interface HairCardItemProps {
   }[];
 }
 
-
 const screenWidth = Dimensions.get("window").width;
 
 export default function HairCardItem({
@@ -58,6 +59,9 @@ export default function HairCardItem({
   const toggleFavorite = () => {
     setIsFavorite(!isFavorite); // Đổi trạng thái
   };
+  const { user, setUser } = useUser();
+  const { booking, setBooking } = useBooking();
+
   const item = {
     id,
     ten_kieu_toc,
@@ -67,7 +71,7 @@ export default function HairCardItem({
     hinh_anh_kieu_toc,
     gioi_tinh,
     // rating,
-    kieu_toc_phu_hop,    
+    kieu_toc_phu_hop,
   };
   return (
     <TouchableOpacity
@@ -84,14 +88,6 @@ export default function HairCardItem({
       <View style={styles.imageContainer}>
         <Image source={hinh_anh_kieu_toc[0].url_anh} style={styles.image} />
 
-        {/* Biểu tượng yêu thích */}
-        <TouchableOpacity style={styles.iconHeart} onPress={toggleFavorite}>
-          <Icon
-            name={isFavorite ? "heart" : "heart-outline"} // Thay đổi icon
-            size={20}
-            color={isFavorite ? "#ff4d4d" : "#fff"} // Màu đỏ khi đã yêu thích
-          />
-        </TouchableOpacity>
 
         {/* Đánh giá */}
         <View style={styles.ratingContainer}>
@@ -106,7 +102,7 @@ export default function HairCardItem({
 
       {/* Tên và thông tin dịch vụ */}
       <View style={styles.infoContainer}>
-        <View style={{ flex:1}}>
+        <View style={{ flex: 1 }}>
           <Text style={styles.serviceName}>{ten_kieu_toc}</Text>
           <Text style={styles.serviceDetails}>{gia_tien}</Text>
         </View>
@@ -116,7 +112,70 @@ export default function HairCardItem({
           // onPress={() => router.push("/bookAppt")}
           //in ra thong tin cua kieu toc
           onPress={() => {
-            router.push("/bookAppt")}}
+            if (user === null) {
+              router.push("/login");
+            } else {
+              if (booking) {
+                // Tạo bản sao của chi_tiet_phieu_dat
+                const updatedChiTietPhieuDat = [
+                  ...booking.chi_tiet_phieu_dat,
+                ];
+                // Cập nhật kiểu tóc cho phần tử đầu tiên
+                if (updatedChiTietPhieuDat[0]) {
+                  updatedChiTietPhieuDat[0] = {
+                    ...updatedChiTietPhieuDat[0], // Giữ nguyên các thuộc tính khác
+                    kieu_toc: {
+                      id_kieu_toc: item.id, // Cập nhật id kiểu tóc
+                      ten_kieu_toc: item.ten_kieu_toc,
+                      gia: Number(item.gia_tien),
+                      hinh_anh: item.hinh_anh_kieu_toc[0].url_anh,
+                    }, // Cập nhật kieu_toc
+                  };
+                }
+                // Cập nhật lại booking với chi_tiet_phieu_dat mới
+                setBooking({
+                  ...booking, // Giữ nguyên các thuộc tính khác của booking
+                  chi_tiet_phieu_dat: updatedChiTietPhieuDat, // Gán chi_tiet_phieu_dat mới
+                });
+              } else {
+                const now = new Date();
+                const today = new Date(
+                  now.getTime() + 7 * 60 * 60 * 1000
+                );
+
+                const tomorow = new Date();
+                tomorow.setDate(tomorow.getDate() + 1);
+                const data = {
+                  id_tai_khoan: user.id,
+                  ngay_hen: tomorow,
+                  gio_hen: "",
+                  phuong_thuc_thanh_toan: "Tiền mặt",
+                  tong_tien: 0,
+                  thoi_gian_dat: today,
+                  chi_tiet_phieu_dat: [
+                    {
+                      ten_khach_hang: user.ho_ten,
+                      kieu_toc: {
+                        id_kieu_toc: 0,
+                        ten_kieu_toc: "",
+                        gia: 0,
+                        hinh_anh: "",
+                      },
+                      dich_vu: [
+                        {
+                          id_dich_vu: 0,
+                          ten_dich_vu: "",
+                          phi_dich_vu: 0,
+                        },
+                      ],
+                    },
+                  ],
+                };
+                setBooking(data);
+              }              
+              router.push("/bookAppt");
+            }
+          }}
           style={styles.iconBookingContainer}
         >
           <Icon name="calendar" size={20} color="#fff" />

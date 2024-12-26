@@ -27,8 +27,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="notification"
       options={{
         headerShown:false,
-        tabBarLabel : 'Thông báo',
-        tabBarIcon: ({ color }) => <Ionicons name="notifications" size={24} color={color} />,
+        tabBarLabel : 'Lịch hẹn',
+        tabBarIcon: ({ color }) => <Ionicons name="calendar-number" size={24} color={color} />,
       }}
       />
       <Tabs.Screen name="about"

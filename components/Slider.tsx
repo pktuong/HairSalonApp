@@ -1,13 +1,28 @@
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useState } from "react";
+import { TouchableOpacity } from "react-native";
 import { ImageSourcePropType, ScrollView, StyleSheet, View } from "react-native";
 import { Dimensions } from "react-native";
 
 const { width } = Dimensions.get("window");
-
-export default function Slider({ images }: { images: ImageSourcePropType[] }) {
+ interface Poster {
+    id: number;
+    tieu_de: string;
+    noi_dung: string;
+    ngay_dang: string;
+    id_tai_khoan: number;
+    hien_thi: boolean;
+    hinh_anh: string;
+    createdAt: string;
+    updatedAt: string;
+  }
+export default function Slider({ posters }: { posters: Poster[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
-
+  
+    const router = useRouter();
+  
+ 
   const handleScroll = (event: {
     nativeEvent: { contentOffset: { x: any } };
   }) => {
@@ -25,13 +40,15 @@ export default function Slider({ images }: { images: ImageSourcePropType[] }) {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        {images.map((image, index) => (
-          <Image key={index} source={image} style={styles.imageSlider} />
+        {posters.map((poster, index) => (
+          <TouchableOpacity key={index} onPress={() => router.push({pathname:"/posterDetail", params:{poster:JSON.stringify(poster)}}) }>
+          <Image key={index} source={{ uri: poster.hinh_anh }} style={styles.imageSlider} />
+          </TouchableOpacity>
         ))}
       </ScrollView>
 
       <View style={styles.indicatorsContainer}>
-        {images.map((_, index) => (
+        {posters.map((_, index) => (
           <View
             key={index}
             style={[

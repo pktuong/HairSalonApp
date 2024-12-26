@@ -18,7 +18,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { setUser } = useUser();
+  const { user,setUser } = useUser();
   
 
   const handleLogin = async () => {
@@ -51,12 +51,13 @@ export default function LoginScreen() {
             text: "OK",
             onPress: () => {
               router.push("/");
+
             },
           },
         ]
         );
         // Lưu token hoặc điều hướng tới màn hình tiếp theo
-        console.log("Data:", data.data);
+        // console.log("Data:", data.data);
       } else {
         // Đăng nhập thất bại
         Alert.alert("Lỗi", data.message || "Đăng nhập thất bại");

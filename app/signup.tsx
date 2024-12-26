@@ -69,7 +69,7 @@ export default function SignupScreen() {
         console.log("Data:", data.data);
       } else {
         // Đăng nhập thất bại
-        Alert.alert("Lỗi", data.message || "Đăng ký thất bại");
+        Alert.alert("Đăng kí thất bại", data.message || "Đăng ký thất bại");
       }
     } catch (error) {
       console.error("Lỗi:", error);

@@ -84,7 +84,15 @@ export default function ProfileScreen() {
 
       {/* Menu Options */}
       <View style={styles.menuContainer}>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+        onPress={() => {
+          if (user === null) {
+            router.push("/login");
+          } else {
+            router.push("/wishHairList");
+          }
+        }}
+        style={styles.menuItem}>
           <FontAwesome5 name="heart" size={20} color="#555" />
           <Text style={styles.menuText}>Danh sách yêu thích</Text>
         </TouchableOpacity>
@@ -93,8 +101,8 @@ export default function ProfileScreen() {
           <Text style={styles.menuText}>Phương thức thanh toán</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem}>
-          <Ionicons name="people-outline" size={20} color="#555" />
-          <Text style={styles.menuText}>Hỗ trợ khách hàng</Text>
+          <Ionicons name="person-outline" size={20} color="#555" />
+          <Text style={styles.menuText}>Cập nhật thông tin tài khoản</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem}>
           <MaterialIcons name="local-offer" size={20} color="#555" />

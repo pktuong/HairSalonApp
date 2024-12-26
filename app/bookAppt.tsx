@@ -1,5 +1,10 @@
 import { Image } from "expo-image";
-import { Stack, useRouter } from "expo-router";
+import {
+  Stack,
+  useGlobalSearchParams,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Text,
@@ -14,17 +19,25 @@ import {
 import Icon from "react-native-vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { API_BASE_URL } from "@/Localhost";
+import { useUser } from "@/context/UserContext";
+import { useBooking } from "@/context/BookingContext";
+import { Alert } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
+import React from "react";
 
 export default function BookingAppointment() {
   const router = useRouter();
-  // const [date, setDate] khai báo ngày mai
-  const [date, setDate] = useState(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow;
-});;
+  const { user, setUser } = useUser();
+  const isFocused = useIsFocused();
+  const { booking, setBooking } = useBooking();
   const [showPicker, setShowPicker] = useState(false); // Hiển thị Date Picke
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot>();
+  const [soNguoi, setSoNguoi] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState<string>("Chuyển khoản");
+  const tomorow = new Date();
+  tomorow.setDate(tomorow.getDate() + 1);
+  const [date, setDate] = useState(booking?.ngay_hen || tomorow);
 
   interface DatePickerEvent {
     type: string;
@@ -36,6 +49,44 @@ export default function BookingAppointment() {
     available: boolean;
     slotNum: number;
   }
+
+  type ChiTietPhieuDat = {
+    ten_khach_hang: string;
+    kieu_toc: KieuToc;
+    dich_vu: DichVu[];
+  };
+  type DichVu = {
+    id_dich_vu: number;
+    ten_dich_vu: string;
+    phi_dich_vu: number;
+  };
+  type KieuToc = {
+    id_kieu_toc: number;
+    ten_kieu_toc: string;
+    gia: number;
+    hinh_anh: string;
+  };
+
+  const [list_chi_tiet_phieu_dat, setChiTietPhieuDat] = useState<
+    ChiTietPhieuDat[]
+  >(() => {
+    if (!user) {
+      return [];
+    }
+    return [
+      {
+        id: 0,
+        ten_khach_hang: user.ho_ten,
+        kieu_toc: {
+          id_kieu_toc: 0,
+          ten_kieu_toc: "",
+          gia: 0,
+          hinh_anh: "",
+        },
+        dich_vu: [{ id_dich_vu: 0, ten_dich_vu: "", phi_dich_vu: 0 }],
+      },
+    ];
+  });
 
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([
     { time: "7:30 AM", available: true, slotNum: 3 },
@@ -54,10 +105,6 @@ export default function BookingAppointment() {
     { time: "3:30 PM", available: true, slotNum: 3 },
     { time: "4:00 PM", available: true, slotNum: 3 },
   ]);
-
-  useEffect(() => {
-    console.log("Time slots updated:", timeSlots);
-  }, [timeSlots]);
 
   const getApptsByDate = async (date: Date) => {
     const formattedDate = `${date.getFullYear()}-${
@@ -78,6 +125,124 @@ export default function BookingAppointment() {
     }
   };
 
+  const convertTo12Hour = (time: string) => {
+    let [hour, minute] = time.split(":").map(Number);
+    const period = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 12;
+    return `${hour}:${String(minute).padStart(2, "0")} ${period}`;
+  };
+
+  const onChangeDateTime = async (
+    event: DatePickerEvent,
+    selectedDate?: Date | undefined
+  ) => {
+    const currentDate = selectedDate || date;
+    setShowPicker(false); // Ẩn picker sau khi chọn ngày
+    setDate(currentDate);
+    getApptsByDate(currentDate); // Lấy danh sách khung giờ trống
+    if (booking) {
+      setBooking({ ...booking, ngay_hen: currentDate });
+    }
+  };
+
+  const showDatePicker = () => {
+    setShowPicker(true);
+  };
+
+  const handleTimeSelect = (item: TimeSlot) => {
+    if (item.slotNum < soNguoi) {
+      Alert.alert(
+        "Cảnh báo",
+        "Số người bạn thêm đã vượt quá số lượng còn trống"
+      );
+      return;
+    }
+    setSelectedTime(item.time); // Chọn khung giờ
+    setSelectedSlot(item);
+    if (booking) {
+      setBooking({ ...booking, gio_hen: item.time });
+    }
+  };
+
+  // Hàm tăng số người
+  const tangSoNguoi = () => {
+    if (soNguoi == selectedSlot?.slotNum) {
+      Alert.alert("Cảnh báo", "Số người trong khung giờ đã đầy");
+      return;
+    }
+    if (soNguoi < 3) {
+      setSoNguoi((prev) => prev + 1);
+      setChiTietPhieuDat((prev) => [
+        ...prev,
+        {
+          ten_khach_hang: "",
+          kieu_toc: {
+            id_kieu_toc: 0,
+            ten_kieu_toc: "",
+            gia: 0,
+            hinh_anh: "",
+          },
+          dich_vu: [{ id_dich_vu: 0, ten_dich_vu: "", phi_dich_vu: 0 }],
+        },
+      ]);
+      if (booking) {
+        setBooking({
+          ...booking,
+          chi_tiet_phieu_dat: [
+            ...booking.chi_tiet_phieu_dat,
+            {
+              ten_khach_hang: "",
+              kieu_toc: {
+                id_kieu_toc: 0,
+                ten_kieu_toc: "",
+                gia: 0,
+                hinh_anh: "",
+              },
+              dich_vu: [{ id_dich_vu: 0, ten_dich_vu: "", phi_dich_vu: 0 }],
+            },
+          ],
+        });
+      }
+    } else {
+      Alert.alert("Cảnh báo", "Số người tối đa là 3");
+    }
+  };
+
+  // Hàm giảm số người
+  const giamSoNguoi = () => {
+    if (soNguoi > 1) {
+      setSoNguoi((prev) => prev - 1);
+      setChiTietPhieuDat((prev) => prev.slice(0, -1)); // Xóa object cuối cùng
+      if (booking) {
+        setBooking({
+          ...booking,
+          chi_tiet_phieu_dat: booking.chi_tiet_phieu_dat.slice(0, -1),
+        });
+      }
+    }
+  };
+
+  // Cập nhật thông tin từng người
+  const updateName = (
+    index: number,
+    field: keyof ChiTietPhieuDat,
+    value: string
+  ) => {
+    setChiTietPhieuDat((prev) =>
+      prev.map((person, i) =>
+        i === index ? { ...person, [field]: value } : person
+      )
+    );
+    if (booking) {
+      setBooking({
+        ...booking,
+        chi_tiet_phieu_dat: booking.chi_tiet_phieu_dat.map((person, i) =>
+          i === index ? { ...person, [field]: value } : person
+        ),
+      });
+    }
+  };
+
   const convertTo24Hour = (time: string) => {
     const match = time.match(/(\d+):(\d+)\s?(AM|PM)/);
     if (!match) {
@@ -89,73 +254,203 @@ export default function BookingAppointment() {
     if (period === "AM" && hours24 === 12) hours24 = 0;
     return `${String(hours24).padStart(2, "0")}:${minute}:00`;
   };
-
-  const onChangeDateTime = async (
-    event: DatePickerEvent,
-    selectedDate?: Date | undefined
-  ) => {
-    const currentDate = selectedDate || date;
-    setShowPicker(false); // Ẩn picker sau khi chọn ngày
-    setDate(currentDate);
-    getApptsByDate(currentDate); // Lấy danh sách khung giờ trống
+  const showData = () => {
+    console.log("==========Data==========");
+    // console.log("Selected time:", selectedTime);
+    console.log("Date:", date);
+    // console.log("People list:", peopleList);
+    // console.log("Payment method:", paymentMethod);
+    console.log("Booking:", booking);
+    console.log(paymentMethod);
   };
 
-  useEffect(() => {
-    console.log(date);
-  }, [date]);
+  const removeDichVu = (chiTietIndex: number, idDichVu: number) => {
+    if (booking) {
+      const updatedChiTietPhieuDat = [...booking.chi_tiet_phieu_dat];
 
-  const showDatePicker = () => {
-    setShowPicker(true);
-  };
+      // Lọc bỏ dịch vụ có idDichVu trong mảng dich_vu của đối tượng chỉ định
+      updatedChiTietPhieuDat[chiTietIndex] = {
+        ...updatedChiTietPhieuDat[chiTietIndex],
+        dich_vu: updatedChiTietPhieuDat[chiTietIndex].dich_vu.filter(
+          (dichVu) => dichVu.id_dich_vu !== idDichVu
+        ),
+      };
 
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time); // Chọn khung giờ
-  };
-  const [nameTxt, setName] = useState("");
-  const kieuToc = [
-    {
-      id: 1,
-      name: "Kiểu tóc nam 1",
-      price: "100.000đ",
-      image: require("../assets/images/background-image.png"),
-    },
-  ];
-  type Person = { id: string; name: string; service: string; style: string };
-  const [soNguoi, setSoNguoi] = useState(1);
-  const [peopleList, setPeopleList] = useState<Person[]>([
-    { id: "1", name: "", service: "", style: "" },
-  ]);
-
-  // Hàm tăng số người
-  const tangSoNguoi = () => {
-    setSoNguoi((prev) => prev + 1);
-    setPeopleList((prev) => [
-      ...prev,
-      { id: `${prev.length + 1}`, name: "", service: "", style: "" },
-    ]);
-  };
-
-  // Hàm giảm số người
-  const giamSoNguoi = () => {
-    if (soNguoi > 1) {
-      setSoNguoi((prev) => prev - 1);
-      setPeopleList((prev) => prev.slice(0, -1)); // Xóa object cuối cùng
+      // Cập nhật lại booking
+      setBooking({
+        ...booking,
+        chi_tiet_phieu_dat: updatedChiTietPhieuDat,
+      });
     }
   };
 
-  // Cập nhật thông tin từng người
-  const updatePersonInfo = (
-    index: number,
-    field: keyof Person,
-    value: string
-  ) => {
-    setPeopleList((prev) =>
-      prev.map((person, i) =>
-        i === index ? { ...person, [field]: value } : person
-      )
-    );
+  const calculateTotal = (chiTietPhieuDat: ChiTietPhieuDat[]) => {
+    return chiTietPhieuDat.reduce((tong, item) => {
+      const giaKieuToc = Number(item.kieu_toc.gia) || 0; // Giá kiểu tóc
+      const tongPhiDichVu = item.dich_vu.reduce((tongDichVu, dichVu) => {
+        return tongDichVu + (Number(dichVu.phi_dich_vu) || 0); // Phí dịch vụ
+      }, 0);
+      return tong + giaKieuToc + tongPhiDichVu; // Tổng tiền của từng khách hàng
+    }, 0);
   };
-  const [paymentMethod, setPaymentMethod] = useState<string>("online");
+
+  const kiemTraDaChonKieuTocHoacDichVu = (
+    chiTietPhieuDat: ChiTietPhieuDat[]
+  ) => {
+    for (let item of chiTietPhieuDat) {
+      const daChonKieuToc = item.kieu_toc.id_kieu_toc !== 0;
+      const daChonDichVu = item.dich_vu.some(
+        (dichVu) => dichVu.id_dich_vu !== 0
+      );
+
+      // Nếu chưa chọn kiểu tóc hoặc dịch vụ
+      if (!daChonKieuToc && !daChonDichVu) {
+        return false;
+      }
+    }
+    return true; // Tất cả khách hàng đều đã chọn ít nhất một trong hai
+  };
+
+  const createAppointment = async () => {
+    if (!user) {
+      console.error("User is not logged in");
+      return;
+    }
+    const now = new Date();
+
+    // Thêm 7 giờ (chênh lệch với UTC)
+    const today = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    if (selectedTime === null) {
+      Alert.alert("Cảnh báo", "Vui lòng chọn khung giờ");
+      return;
+    }
+    // console.log("=========Booking==========");
+    console.log("Date:", booking?.chi_tiet_phieu_dat[1]);
+    if (!kiemTraDaChonKieuTocHoacDichVu(list_chi_tiet_phieu_dat)) {
+      Alert.alert("Cảnh báo", "Vui lòng chọn kiểu tóc hoặc dịch vụ");
+      return;
+    } else {
+      if (paymentMethod === "Chuyển khoản") {
+        callPayment();
+      }
+      if (paymentMethod === "Tiền mặt") {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/createAppt`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(booking),
+          });
+          if (response.ok) {
+            Alert.alert("Thông báo", "Tạo lịch hẹn thành công", [
+              {
+                text: "OK",
+                onPress: () => {
+                  const tomorow = new Date();
+                  tomorow.setDate(tomorow.getDate() + 1);
+                  setBooking({
+                    id_tai_khoan: user.id,
+                    ngay_hen: tomorow,
+                    gio_hen: "",
+                    phuong_thuc_thanh_toan: "Tiền mặt",
+                    tong_tien: 0,
+                    thoi_gian_dat: new Date(),
+                    chi_tiet_phieu_dat: [
+                      {
+                        ten_khach_hang: user.ho_ten,
+                        kieu_toc: {
+                          id_kieu_toc: 0,
+                          ten_kieu_toc: "",
+                          gia: 0,
+                          hinh_anh: "",
+                        },
+                        dich_vu: [
+                          {
+                            id_dich_vu: 0,
+                            ten_dich_vu: "",
+                            phi_dich_vu: 0,
+                          },
+                        ],
+                      },
+                    ],
+                  });
+                  router.push("/");
+                },
+              },
+            ]);
+          } else {
+            throw new Error(
+              `Error creating appointment: ${response.statusText}`
+            );
+          }
+          const result = await response.json();
+          console.log("Result:", result);
+        } catch (error) {
+          console.error("Error:", error);
+        }
+      }
+    }
+  };
+
+  const callPayment = async () => {    
+    const resPayment = await fetch(`${API_BASE_URL}/api/createPayment`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        totalPrice: calculateTotal(list_chi_tiet_phieu_dat),
+      }),
+    });
+    const data = await resPayment.json();
+    console.log(data);
+    router.push({
+      pathname: "/momoPayment",
+      params: { payUrl: data.order_url, transID: data.transID },
+    });
+  };
+
+  useEffect(() => {
+    if (isFocused) {
+      getApptsByDate(date);
+      if (booking) {
+        setDate(booking.ngay_hen);
+        // cập nhật lại selected time và selected slot
+        timeSlots.forEach((item) => {
+          if (item.time == booking.gio_hen) {
+            setSelectedTime(item.time);
+            setSelectedSlot(item);
+          }
+        });
+        //cập nhật list_chi_tiet_phieu_dat
+        setChiTietPhieuDat(booking.chi_tiet_phieu_dat);
+        //cập nhật lại số người
+        setSoNguoi(booking.chi_tiet_phieu_dat.length);
+      }
+    }
+  }, [isFocused]);
+  useEffect(() => {
+    console.log("Time slots updated:", timeSlots);
+  }, [timeSlots]);
+  useEffect(() => {
+    console.log(date);
+  }, [date]);
+  useEffect(() => {
+    console.log("Selected time:", selectedTime);
+    console.log("Selected slot:", selectedSlot);
+  }, [selectedTime, selectedSlot]);
+  useEffect(() => {
+    const i = list_chi_tiet_phieu_dat;
+  }, [list_chi_tiet_phieu_dat]);
+  useEffect(() => {
+    if (paymentMethod && booking) {
+      setBooking({
+        ...booking,
+        phuong_thuc_thanh_toan: paymentMethod,
+      });
+    }
+  }, [paymentMethod]);
   return (
     <>
       <FlatList
@@ -192,7 +487,7 @@ export default function BookingAppointment() {
                   value={date}
                   mode="date"
                   display="default"
-                  minimumDate={date}
+                  minimumDate={tomorow}
                   onChange={onChangeDateTime}
                 />
               )}
@@ -216,10 +511,14 @@ export default function BookingAppointment() {
                 : styles.disabledSlot,
             ]}
             disabled={!item.available}
-            onPress={() => handleTimeSelect(item.time)}
+            onPress={() => handleTimeSelect(item)}
           >
             <Text
-              style={[styles.timeText, !item.available && styles.disabledText, {flex: 1, textAlign: "center"}]}
+              style={[
+                styles.timeText,
+                !item.available && styles.disabledText,
+                { flex: 1, textAlign: "center" },
+              ]}
             >
               {item.time}
             </Text>
@@ -264,27 +563,29 @@ export default function BookingAppointment() {
                   </View>
                 </View>
               }
-              data={peopleList}
-              keyExtractor={(item) => item.id}
-              extraData={peopleList}
+              data={list_chi_tiet_phieu_dat}
+              keyExtractor={(_, index) => index.toString()}
+              extraData={list_chi_tiet_phieu_dat}
               renderItem={({ item, index }) => (
                 <View
                   style={{
                     paddingTop: 10,
-                    paddingLeft: 10,
+                    // paddingLeft: 10,
                     marginBottom: 15,
                     backgroundColor: "#fff",
                   }}
                 >
                   {/* Tên */}
-                  <Text style={styles.tieuDe}>Khách hàng {index + 1}:</Text>
+                  <Text style={[styles.tieuDe, { marginLeft: 10 }]}>
+                    Khách hàng {index + 1}:
+                  </Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Nhập họ tên..."
                     maxLength={50} // Giới hạn số ký tự
-                    value={item.name}
+                    value={item.ten_khach_hang}
                     onChangeText={(text) =>
-                      updatePersonInfo(index, "name", text)
+                      updateName(index, "ten_khach_hang", text)
                     }
                   />
                   {/* Kiểu tóc */}
@@ -292,78 +593,165 @@ export default function BookingAppointment() {
                     style={{
                       flexDirection: "row",
                       justifyContent: "space-between",
+                      marginVertical: 10,
+                      borderWidth: 1,
+                      borderRadius: 50,
+                      paddingHorizontal: 10,
+                      marginHorizontal: 10,
+                      paddingVertical: 8,
+                      borderColor: "#ccc",
                     }}
                   >
-                    <Text style={[styles.tieuDe, { flex: 1 }]}>
-                      Kiểu tóc đã chọn:
+                    <Text
+                      style={[
+                        styles.tieuDe,
+                        {
+                          marginLeft: 10,
+                          flex: 1,
+                        },
+                      ]}
+                    >
+                      Chọn kiểu tóc:
                     </Text>
-                    <TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: "/selectHair",
+                          params: { indexAdd: index },
+                        })
+                      }
+                    >
                       <Icon name="add-circle-outline" size={25} color="#000" />
                     </TouchableOpacity>
                   </View>
-
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      paddingHorizontal: 10,
-                      alignItems: "center",
-                      backgroundColor: "#fff",
-                    }}
-                  >
-                    <Image source={kieuToc[0].image} style={styles.image} />
-                    <View style={{ flex: 7 }}>
-                      <Text style={{ fontSize: 16 }}>{kieuToc[0].name}</Text>
-                      <Text
-                        style={{ fontSize: 16, marginTop: 10, marginLeft: 10 }}
-                      >
-                        {kieuToc[0].price}
-                      </Text>
+                  {item.kieu_toc.ten_kieu_toc != "" ? (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        paddingHorizontal: 10,
+                        alignItems: "center",
+                        backgroundColor: "#fff",
+                      }}
+                    >
+                      <Image
+                        source={item.kieu_toc.hinh_anh}
+                        style={styles.image}
+                      />
+                      <View style={{ flex: 7 }}>
+                        <Text style={{ fontSize: 16 }}>
+                          {item.kieu_toc.ten_kieu_toc}
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            marginTop: 10,
+                            marginLeft: 10,
+                          }}
+                        >
+                          {item.kieu_toc.gia}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <TouchableOpacity
+                          onPress={() => {
+                            let newArr = [...list_chi_tiet_phieu_dat];
+                            newArr[index].kieu_toc = {
+                              id_kieu_toc: 0,
+                              ten_kieu_toc: "",
+                              gia: 0,
+                              hinh_anh: "",
+                            };
+                            setChiTietPhieuDat(newArr);
+                          }}
+                        >
+                          {/* delete icon */}
+                          <Icon
+                            name="close-circle-outline"
+                            size={25}
+                            color="#e32002"
+                          />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <TouchableOpacity>
-                        {/* change icon */}
-                        <Icon name="create-outline" size={25} color="#000" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  ) : (
+                    <></>
+                  )}
 
                   {/* Dịch vụ */}
                   <View
                     style={{
                       flexDirection: "row",
                       justifyContent: "space-between",
-                    }}
-                  >
-                    <Text style={[styles.tieuDe, { flex: 1 }]}>Dịch vụ:</Text>
-                    <TouchableOpacity>
-                      <Icon name="add-circle-outline" size={25} color="#000" />
-                    </TouchableOpacity>
-                  </View>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      paddingHorizontal: 10,
-                      marginRight: 10,
-                      marginVertical: 5,
-                      alignItems: "center",
+                      marginVertical: 10,
                       paddingVertical: 8,
+                      paddingHorizontal: 10,
+                      borderRadius: 50,
+                      marginHorizontal: 10,
                       borderWidth: 1,
                       borderColor: "#ccc",
                     }}
                   >
-                    <Text style={{ fontSize: 16, flex: 2 }}>
-                      {kieuToc[0].name}
+                    <Text style={[styles.tieuDe, { flex: 1, marginLeft: 10 }]}>
+                      Chọn dịch vụ:
                     </Text>
-                    <Text style={{ fontSize: 16, flex: 2 }}>
-                      {kieuToc[0].price}
-                    </Text>
-                    <View style={{}}>
-                      <TouchableOpacity>
-                        {/* change icon */}
-                        <Icon name="close" size={25} color="#e32002" />
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: "/selectService",
+                          params: { indexAddService: index },
+                        })
+                      }
+                    >
+                      <Icon name="add-circle-outline" size={25} color="#000" />
+                    </TouchableOpacity>
                   </View>
+
+                  {item.dich_vu.map(
+                    (dv) =>
+                      dv.ten_dich_vu != "" && (
+                        <View
+                          key={dv.id_dich_vu}
+                          style={{
+                            flexDirection: "row",
+                            paddingHorizontal: 10,
+                            marginHorizontal: 10,
+                            marginVertical: 5,
+                            alignItems: "center",
+                            paddingVertical: 12,
+                            borderWidth: 1,
+                            borderColor: "#ccc",
+                            borderRadius: 10,
+                          }}
+                        >
+                          <Text style={{ fontSize: 16, flex: 2 }}>
+                            {dv.ten_dich_vu}
+                          </Text>
+                          <Text style={{ fontSize: 16, flex: 2 }}>
+                            {dv.phi_dich_vu}
+                          </Text>
+                          <View style={{}}>
+                            <TouchableOpacity
+                              onPress={() => {
+                                let newArr = [...list_chi_tiet_phieu_dat];
+                                newArr[index].dich_vu = newArr[
+                                  index
+                                ].dich_vu.filter(
+                                  (item) => item.id_dich_vu !== dv.id_dich_vu
+                                );
+                                setChiTietPhieuDat(newArr);
+                              }}
+                            >
+                              {/* delete icon */}
+                              <Icon
+                                name="close-circle-outline"
+                                size={25}
+                                color="#e32002"
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )
+                  )}
                 </View>
               )}
             />
@@ -376,16 +764,16 @@ export default function BookingAppointment() {
                   styles.option,
                   paymentMethod === "online" && styles.selectedOption,
                 ]}
-                onPress={() => setPaymentMethod("online")}
+                onPress={() => setPaymentMethod("Chuyển khoản")}
               >
                 <Icon
                   name={
-                    paymentMethod === "online"
+                    paymentMethod === "Chuyển khoản"
                       ? "checkmark-circle"
                       : "checkmark-circle-outline"
                   }
                   size={25}
-                  color={paymentMethod === "online" ? "#007BFF" : "#ccc"}
+                  color={paymentMethod === "Chuyển khoản" ? "#007BFF" : "#ccc"}
                 />
                 <Text style={styles.optionText}>Thanh toán online</Text>
               </TouchableOpacity>
@@ -395,16 +783,16 @@ export default function BookingAppointment() {
                   styles.option,
                   paymentMethod === "in-store" && styles.selectedOption,
                 ]}
-                onPress={() => setPaymentMethod("in-store")}
+                onPress={() => setPaymentMethod("Tiền mặt")}
               >
                 <Icon
                   name={
-                    paymentMethod === "in-store"
+                    paymentMethod === "Tiền mặt"
                       ? "checkmark-circle"
                       : "checkmark-circle-outline"
                   }
                   size={25}
-                  color={paymentMethod === "in-store" ? "#007BFF" : "#ccc"}
+                  color={paymentMethod === "Tiền mặt" ? "#007BFF" : "#ccc"}
                 />
                 <Text style={styles.optionText}>Thanh toán tại cửa hàng</Text>
               </TouchableOpacity>
@@ -432,10 +820,20 @@ export default function BookingAppointment() {
         <View style={{ flex: 1, marginRight: 10 }}>
           <Text style={{ fontSize: 15 }}>Tổng hóa đơn:</Text>
           <Text style={{ color: "red", fontSize: 19, fontWeight: "bold" }}>
-            500.000đ
+            {calculateTotal(list_chi_tiet_phieu_dat).toLocaleString("vi-VN", {
+              style: "currency",
+              currency: "VND",
+            })}
           </Text>
         </View>
+
         <TouchableOpacity
+          onPress={
+            () => {
+              createAppointment();
+            }
+            // createAppointment
+          }
           style={{
             paddingVertical: 10,
             paddingHorizontal: 20,
@@ -494,6 +892,7 @@ const styles = StyleSheet.create({
   input: {
     // height: 40,
     fontSize: 18,
+    marginLeft: 15,
   },
 
   timeSlot: {

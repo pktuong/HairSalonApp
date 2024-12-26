@@ -3,14 +3,14 @@ import { Text, View, StyleSheet } from 'react-native';
 
 export default function NotFoundScreen() {
   return (
-    <>
+    <View>
     <Stack.Screen options={{title:"NotFound"}}></Stack.Screen>
     <View style={styles.container}>
       <Link href="/" style={styles.button}>
       Go to Home screen
       </Link>
     </View>
-    </>
+    </View>
   );
 }
 

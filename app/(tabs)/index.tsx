@@ -16,6 +16,7 @@ import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useIsFocused } from "@react-navigation/native";
 import { API_BASE_URL } from "../../Localhost";
+import { useUser } from "@/context/UserContext";
 
 const Placeholder = require("../../assets/images/background-image.png");
 const { width } = Dimensions.get("window");
@@ -24,21 +25,30 @@ export default function Index() {
   const isFocused = useIsFocused();
   const [activeIndex, setActiveIndex] = useState(0); // Để theo dõi chỉ mục hiện tại
   const [hairList, setHairList] = useState<Array<object>>([]); 
+  const { user, setUser } = useUser();
+  const [services, setServices] = useState<Array<object>>([]);
 
-  // Danh sách hình ảnh
-  const images = [
-    Placeholder,
-    Placeholder,
-    Placeholder,
-    Placeholder,
-    Placeholder,
-  ];
+  interface Poster {    
+    id: number;
+    tieu_de: string;
+    noi_dung: string;
+    ngay_dang: string;
+    id_tai_khoan: number;
+    hien_thi: boolean;
+    hinh_anh: string;
+    createdAt: string;
+    updatedAt: string;
+  }
+
+  const [posters, setPosters] = useState<Array<Poster>>([]);
 
   const [timKiem, setTimKiem] = useState("");
 
   useEffect(() => {
     if (isFocused) {
       getHairList();
+      getServices();
+      getPosters();
     }
   }, [isFocused]);
 
@@ -50,39 +60,36 @@ export default function Index() {
     const data = await response.json();
     setHairList(data.data);
   };
+  const getServices = async () => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/services/getAllServices`
+    );
+    const data = await response.json();
+    setServices(data);
+  }
 
-
-  // Hàm xử lý khi cuộn
-  const handleScroll = (event: {
-    nativeEvent: { contentOffset: { x: any } };
-  }) => {
-    const scrollPosition = event.nativeEvent.contentOffset.x;
-    const index = Math.round(scrollPosition / width);
-    setActiveIndex(index);
-  };
+  const getPosters = async () => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/posters/getAllPosters`
+    );
+    const data = await response.json();
+    setPosters(data);
+  }
 
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={["top"]}>
         <ScrollView style={styles.scrollView}>
           {/* Thanh tìm kiếm */}
-          <View style={styles.searchBar}>
-            <Icon name="search" size={20} color="#555" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Tìm kiếm dịch vụ..."
-              placeholderTextColor="#999"
-              value={timKiem}
-              onChangeText={(text) => setTimKiem(text)}
-            />
-          </View>
+          
 
           {/* Slider hình ảnh */}
-          <Slider images={images} />
+          <Slider posters={posters} />
 
           {/* Label Dịch vụ */}
           <View style={styles.genderHair}>
             <Text style={styles.labelText}>Dịch vụ</Text>
+
             <TouchableOpacity
               onPress={() => {
                 console.log(hairList);
@@ -113,34 +120,15 @@ export default function Index() {
             style={{ marginHorizontal: 10 }}
           >
             <View style={{ flexDirection: "row" }}>
-              <TouchableOpacity style={{ marginRight: 10 }}>
+              {services.map((item: any, index: number) => (
+                <TouchableOpacity key={index} style={{ marginRight: 10 }}>
                 <Image
-                  source={Placeholder}
+                  source={item.hinh_anh}
                   style={{ width: 100, height: 100, borderRadius: 10 }}
                 />
-                <Text style={{ textAlign: "center" }}>Dịch vụ 1</Text>
+                <Text style={{ textAlign: "center" }}>{item.ten_dich_vu}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ marginRight: 10 }}>
-                <Image
-                  source={Placeholder}
-                  style={{ width: 100, height: 100, borderRadius: 10 }}
-                />
-                <Text style={{ textAlign: "center" }}>Dịch vụ 2</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ marginRight: 10 }}>
-                <Image
-                  source={Placeholder}
-                  style={{ width: 100, height: 100, borderRadius: 10 }}
-                />
-                <Text style={{ textAlign: "center" }}>Dịch vụ 3</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ marginRight: 10 }}>
-                <Image
-                  source={Placeholder}
-                  style={{ width: 100, height: 100, borderRadius: 10 }}
-                />
-                <Text style={{ textAlign: "center" }}>Dịch vụ 4</Text>
-              </TouchableOpacity>
+              ))}
             </View>
           </ScrollView>
 
@@ -151,7 +139,7 @@ export default function Index() {
               onPress={() => {
                 router.push({
                   pathname:"/(tabs)/hairList",
-                  params:{gioi_tinh:"male"}
+                  params:{gioi_tinh:"Nam"}
                 });
               }}
               style={{ marginRight: 10 }}
@@ -180,11 +168,12 @@ export default function Index() {
             style={styles.scrollListHair}
           >
             <View style={{ flexDirection: "row" }}>
-              {hairList.map((item: any, index: number) => (
-                item.gioi_tinh === "Nam" && (
-                  <HairCardItem key={index} {...item} />
-                )
-              ))}
+                {hairList.map((item: any, index: number) => (
+                  item.gioi_tinh === "Nam" && index < 4 && (
+                    <HairCardItem key={index} {...item} />
+                  )
+                ))}
+
             </View>
           </ScrollView>
           {/* Label Kiểu tóc nữ */}
@@ -194,7 +183,7 @@ export default function Index() {
               onPress={() => {
                 router.push({
                   pathname:"/(tabs)/hairList",
-                  params:{gioi_tinh:"female"}
+                  params:{gioi_tinh:"Nữ"}
                 });
               }}
               style={{ marginRight: 10 }}
@@ -225,7 +214,7 @@ export default function Index() {
               
             <View style={{ flexDirection: "row" }}>
               {hairList.map((item: any, index: number) => (
-                item.gioi_tinh === "Nữ" && (
+                item.gioi_tinh === "Nữ" && index < 4 && (
                   <HairCardItem key={index} {...item} />
                 )
               ))}
@@ -234,7 +223,16 @@ export default function Index() {
           </ScrollView>
         </ScrollView>
         <TouchableOpacity 
-        onPress={() => router.push("/bookAppt")}
+        onPress={
+          // Kiểm tra nếu user null thì chuyển hướng đến trang đăng nhập
+          () => {
+            if(user === null){
+              router.push("/login");
+            }else{
+              router.push("/bookAppt")
+            }
+          }
+        }
         style={{
           position:"absolute",
           bottom:10,
