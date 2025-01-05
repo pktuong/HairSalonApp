@@ -384,7 +384,7 @@ export default function PickFace() {
                           );
 
                           const tomorow = new Date();
-                          tomorow.setDate(tomorow.getDate() + 1);
+                          tomorow.setDate(tomorow.getDate());
                           const data = {
                             id_tai_khoan: user!.id,
                             ngay_hen: tomorow,

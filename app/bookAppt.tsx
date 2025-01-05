@@ -36,7 +36,7 @@ export default function BookingAppointment() {
   const [soNguoi, setSoNguoi] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<string>("Chuyển khoản");
   const tomorow = new Date();
-  tomorow.setDate(tomorow.getDate() + 1);
+  tomorow.setDate(tomorow.getDate());
   const [date, setDate] = useState(booking?.ngay_hen || tomorow);
 
   interface DatePickerEvent {
@@ -138,10 +138,14 @@ export default function BookingAppointment() {
   ) => {
     const currentDate = selectedDate || date;
     setShowPicker(false); // Ẩn picker sau khi chọn ngày
-    setDate(currentDate);
-    getApptsByDate(currentDate); // Lấy danh sách khung giờ trống
-    if (booking) {
-      setBooking({ ...booking, ngay_hen: currentDate });
+    if (currentDate.getTime() !== date.getTime()) {
+      setDate(currentDate);
+      getApptsByDate(currentDate); // Lấy danh sách khung giờ trống
+      setSelectedSlot(undefined); // Reset selected slot
+      setSelectedTime(null); // Reset selected time
+      if (booking) {
+        setBooking({ ...booking, ngay_hen: currentDate, gio_hen: "" });
+      }
     }
   };
 
@@ -348,7 +352,7 @@ export default function BookingAppointment() {
                 text: "OK",
                 onPress: () => {
                   const tomorow = new Date();
-                  tomorow.setDate(tomorow.getDate() + 1);
+                  tomorow.setDate(tomorow.getDate());
                   setBooking({
                     id_tai_khoan: user.id,
                     ngay_hen: tomorow,
@@ -540,6 +544,21 @@ export default function BookingAppointment() {
         )}
         ListFooterComponent={
           <>
+          {
+            // kiểm tra nếu tất cả phần tử trong timeslots có available = false thì hiển thị text Khung giờ khả dụng đã hết, vui lòng chọn ngày khác
+            timeSlots.every((item) => item.available === false) && (
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontSize: 16,
+                  color: "red",
+                  marginTop: 10,
+                }}
+              >
+                Khung giờ khả dụng đã hết, vui lòng chọn ngày khác
+              </Text>
+            )
+          }
             <FlatList
               ListHeaderComponent={
                 <View style={{ marginLeft: 10, marginBottom: 15 }}>

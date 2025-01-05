@@ -50,8 +50,18 @@ export default function SelectHair() {
     ten_kieu_toc: string;
     gia_tien: string;
     mo_ta: string;
-    thoi_luong: string;
+    thoi_luong: number;
     gioi_tinh: string;
+    danh_gia_kieu_toc: {
+      id: number;
+      id_khach_hang: number;
+      id_kieu_toc: number;
+      id_chi_tiet_phieu_dat: number;
+      muc_do_hai_long: number;
+      phan_hoi: string;
+      createdAt: string | null;
+      updatedAt: string | null;
+    }[];
     hinh_anh_kieu_toc: {
       id: number;
       id_kieu_toc: number;
@@ -81,7 +91,6 @@ export default function SelectHair() {
   // const [hairList, setHairList] = useState<Array<object>>([]);
   const [gender, setGender] = useState("");
 
-  
   const genderOptions = [
     { label: "Chọn tất cả", value: "" },
     { label: "Kiểu tóc nam", value: "Nam" },
@@ -449,9 +458,8 @@ export default function SelectHair() {
           renderItem={({ item }) => (
             <View style={{ marginLeft: 10, marginTop: 10 }}>
               <TouchableOpacity
-                onPress={() =>
-                  console.log(booking?.chi_tiet_phieu_dat[0].kieu_toc)
-                }
+                // onPress={() =>
+                // }
                 style={styles.cardContainer}
               >
                 {/* <View > */}
@@ -464,13 +472,24 @@ export default function SelectHair() {
 
                   {/* Đánh giá */}
                   <View style={styles.ratingContainer}>
-                    <Icon name="star" size={16} color="#FFD700" />
-                    <Text style={styles.ratingText}>
-                      {/* {rating} */}
-                      4.3
-                      <Text style={{ fontSize: 12, color: "#fff" }}>/5</Text>
-                    </Text>
+                    {item.danh_gia_kieu_toc.length === 0 ? (
+                      <Icon name="star-outline" size={16} color="#FFD700" />
+                    ) : (
+                      <>
+                        <Icon name="star" size={16} color="#FFD700" />
+                        <Text style={styles.ratingText}>
+                          {(
+                            item.danh_gia_kieu_toc.reduce(
+                              (total, current) =>
+                                total + current.muc_do_hai_long,
+                              0
+                            ) / item.danh_gia_kieu_toc.length
+                          ).toFixed(1)}
+                        </Text>
+                      </>
+                    )}
                   </View>
+
                 </View>
 
                 {/* Tên và thông tin dịch vụ */}
@@ -481,26 +500,28 @@ export default function SelectHair() {
                   </View>
 
                   {/* Biểu tượng đặt lịch hẹn */}
-                  <TouchableOpacity
-                    onPress={() => handleBooking(item)}
-                    style={[
-                      styles.iconBookingContainer,
-                      {
-                        backgroundColor:
-                          selectedHairStyleId === item.id
-                            ? "lightgreen"
-                            : "#FFA500",
-                      },
-                    ]}
-                  >
-                    <Icon
-                      name={
-                        selectedHairStyleId === item.id ? "checkmark" : "add"
-                      } // Đổi biểu tượng
-                      size={20}
-                      color="#fff"
-                    />
-                  </TouchableOpacity>
+                  <View>
+                    <TouchableOpacity
+                      onPress={() => handleBooking(item)}
+                      style={[
+                        styles.iconBookingContainer,
+                        {
+                          backgroundColor:
+                            selectedHairStyleId === item.id
+                              ? "lightgreen"
+                              : "#FFA500",
+                        },
+                      ]}
+                    >
+                      <Icon
+                        name={
+                          selectedHairStyleId === item.id ? "checkmark" : "add"
+                        } // Đổi biểu tượng
+                        size={20}
+                        color="#fff"
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 {/* </View> */}
               </TouchableOpacity>
@@ -564,6 +585,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginRight: 10,
     marginBottom: 15,
+    borderRadius: 10,
     elevation: 3,
   },
   imageContainer: {
@@ -571,7 +593,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 120,
+    height: 190,
   },
   iconHeart: {
     position: "absolute",

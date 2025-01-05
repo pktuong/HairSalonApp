@@ -8,6 +8,7 @@ type User = {
   anh_dai_dien: string;
   so_lan_vi_pham: number;  
   id_phan_quyen: string;
+  trang_thai_tai_khoan: string;
 };
 
 type UserContextType = {

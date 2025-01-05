@@ -40,38 +40,40 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const { user } = useUser();
   const [booking, setBooking] = useState<Booking | null>(null);
-  
+
   const tomorow = new Date();
-  tomorow.setDate(tomorow.getDate() + 1);
+  tomorow.setDate(tomorow.getDate());
   // Đồng bộ booking khi user thay đổi
   useEffect(() => {
     if (user) {
-      setBooking({
-        id_tai_khoan: user.id,
-        ngay_hen: tomorow,
-        gio_hen: '',
-        phuong_thuc_thanh_toan: 'Tiền mặt',
-        tong_tien: 0,
-        thoi_gian_dat: new Date(),
-        chi_tiet_phieu_dat: [
-          {
-            ten_khach_hang: user.ho_ten,
-            kieu_toc: {
-              id_kieu_toc: 0,
-              ten_kieu_toc: '',
-              gia: 0,
-              hinh_anh: '',
-            },
-            dich_vu: [
-              {
-                id_dich_vu: 0,
-                ten_dich_vu: '',
-                phi_dich_vu: 0,
+      if (!booking) {
+        setBooking({
+          id_tai_khoan: user.id,
+          ngay_hen: tomorow,
+          gio_hen: "",
+          phuong_thuc_thanh_toan: "Tiền mặt",
+          tong_tien: 0,
+          thoi_gian_dat: new Date(),
+          chi_tiet_phieu_dat: [
+            {
+              ten_khach_hang: user.ho_ten,
+              kieu_toc: {
+                id_kieu_toc: 0,
+                ten_kieu_toc: "",
+                gia: 0,
+                hinh_anh: "",
               },
-            ],
-          },
-        ],
-      });
+              dich_vu: [
+                {
+                  id_dich_vu: 0,
+                  ten_dich_vu: "",
+                  phi_dich_vu: 0,
+                },
+              ],
+            },
+          ],
+        });
+      }
     } else {
       setBooking(null); // Reset nếu user không tồn tại
     }
@@ -83,7 +85,6 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({
     </BookingContext.Provider>
   );
 };
-
 
 export const useBooking = () => {
   const context = useContext(BookingContext);

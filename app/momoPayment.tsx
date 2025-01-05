@@ -6,6 +6,7 @@ import { API_BASE_URL } from "@/Localhost";
 import { BackHandler, Alert } from "react-native";
 import { useBooking } from "@/context/BookingContext";
 import { useUser } from "@/context/UserContext";
+import { useIsFocused } from "@react-navigation/native";
 
 export default function MomoPayment() {
   const router = useRouter();
@@ -31,7 +32,10 @@ export default function MomoPayment() {
     const data = await response.json();
     return data.data.return_code;
   };
+
+  const isFocused = useIsFocused();
   useEffect(() => {
+    if (!isFocused) return;
     const handleBackPress = () => {
       (async () => {
         const paymentStatus = await checkPaymentStatus();
@@ -45,40 +49,42 @@ export default function MomoPayment() {
               },
               body: JSON.stringify(booking),
             });
+            
+            const tomorow = new Date();
+            tomorow.setDate(tomorow.getDate());
+            setBooking({
+              id_tai_khoan: user!.id,
+              ngay_hen: tomorow,
+              gio_hen: "",
+              phuong_thuc_thanh_toan: "Tiền mặt",
+              tong_tien: 0,
+              thoi_gian_dat: new Date(),
+              chi_tiet_phieu_dat: [
+                {
+                  ten_khach_hang: user!.ho_ten,
+                  kieu_toc: {
+                    id_kieu_toc: 0,
+                    ten_kieu_toc: "",
+                    gia: 0,
+                    hinh_anh: "",
+                  },
+                  dich_vu: [
+                    {
+                      id_dich_vu: 0,
+                      ten_dich_vu: "",
+                      phi_dich_vu: 0,
+                    },
+                  ],
+                },
+              ],
+            });
+            
             if (response.ok) {
               Alert.alert("Thông báo", "Tạo lịch hẹn thành công", [
                 {
                   text: "OK",
                   onPress: () => {
-                    const tomorow = new Date();
-                    tomorow.setDate(tomorow.getDate() + 1);
-                    setBooking({
-                      id_tai_khoan: user!.id,
-                      ngay_hen: tomorow,
-                      gio_hen: "",
-                      phuong_thuc_thanh_toan: "Tiền mặt",
-                      tong_tien: 0,
-                      thoi_gian_dat: new Date(),
-                      chi_tiet_phieu_dat: [
-                        {
-                          ten_khach_hang: user!.ho_ten,
-                          kieu_toc: {
-                            id_kieu_toc: 0,
-                            ten_kieu_toc: "",
-                            gia: 0,
-                            hinh_anh: "",
-                          },
-                          dich_vu: [
-                            {
-                              id_dich_vu: 0,
-                              ten_dich_vu: "",
-                              phi_dich_vu: 0,
-                            },
-                          ],
-                        },
-                      ],
-                    });
-                    router.push("/");
+                    router.back();
                   },
                 },
               ]);
@@ -108,7 +114,7 @@ export default function MomoPayment() {
       return true; // Chặn hành động mặc định
     };
 
-    // Thêm sự kiện BackHandler
+    // Thêm sự kiện BackHandler và kiểm tra 
     const backHandlerListener = BackHandler.addEventListener(
       "hardwareBackPress",
       handleBackPress
@@ -116,7 +122,7 @@ export default function MomoPayment() {
 
     // Dọn dẹp sự kiện khi component bị huỷ
     return () => backHandlerListener.remove();
-  }, []);
+  }, [isFocused]);
 
   return (
     <View

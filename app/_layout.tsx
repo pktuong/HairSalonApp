@@ -30,7 +30,8 @@ export default function RootLayout() {
       <Stack.Screen name="wishHairList" options={{ headerTitle:"Kiểu tóc yêu thích", headerTitleAlign:"center"}} />
       <Stack.Screen name="posterDetail" options={{ headerShown:false }} />
       <Stack.Screen name="momoPayment" options={{ headerShown: false }} />
-      <Stack.Screen name="hairSuggest" options={{ headerShown: false }} />
+      <Stack.Screen name="forgetPassword" options={{ headerShown: false }} />
+      <Stack.Screen name="resetPassword" options={{ headerShown: false }} />
     </Stack>
     </BookingProvider>
     </UserProvider>

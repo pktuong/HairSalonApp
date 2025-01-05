@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -11,7 +11,7 @@ import { AntDesign } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { API_BASE_URL } from "../Localhost";
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from "react-native-vector-icons/Ionicons";
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -22,8 +22,57 @@ export default function SignupScreen() {
   const [isPasswordVisible, setPasswordVisible] = useState(false);
   const [isPasswordValidVisible, setPasswordValidVisible] = useState(false);
 
+  const [verificationCode, setVerificationCode] = useState("");
+  const [countdown, setCountdown] = useState(60);
+  const [isCountdownActive, setIsCountdownActive] = useState(false);
+  const [hashedOTP, setHashedOTP] = useState("");
 
   const isPasswordMatch = password === passwordValid;
+
+  const handleOTPChange = (text: any) => {
+    // Loại bỏ các ký tự không phải số
+    const numericValue = text.replace(/[^0-9]/g, "");
+    if (numericValue <= 10000) {
+      setVerificationCode(numericValue);
+    } else {
+      Alert.alert("Cảnh báo", "Mã OTP chỉ chứa tối đa 4 ký tự.");
+    }
+  };
+
+  const handleResendVerificationCode = () => {
+    if (!email) {
+      Alert.alert("Lỗi", "Vui lòng nhập email");
+      return;
+    } else {
+      sendOTPVerifiEmail();
+    }
+  };
+
+  const sendOTPVerifiEmail = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/authentication/send-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        Alert.alert("Lỗi", data.message || "Gửi mã OTP thất bại");
+      } else {
+        setHashedOTP(data.data.hashedOTP);
+        setIsCountdownActive(true);
+        setCountdown(60);
+      }
+      //   console.log("otp code: ", res.data.data.otp);
+    } catch (error) {
+      console.error("Lỗi khi cập nhật:", error);
+      // setLoading(false);
+    }
+  };
 
   const handleSignUp = async () => {
     if (!email || !password) {
@@ -33,6 +82,18 @@ export default function SignupScreen() {
 
     if (!isPasswordMatch) {
       Alert.alert("Lỗi", "Mật khẩu không khớp");
+      return;
+    }
+    //Kiểm tra định dạng email
+    const emailValidation = /^[a-zA-Z0-9]+@[a-zA-Z0-9]+\.[A-Za-z]+$/;
+    if (!emailValidation.test(email)) {
+      Alert.alert("Lỗi", "Email không hợp lệ");
+      return;
+    }
+
+    //Kiểm tra độ dài mật khẩu
+    if (password.length < 6) {
+      Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 6 ký tự");
       return;
     }
 
@@ -49,6 +110,8 @@ export default function SignupScreen() {
             ho_ten: ho_ten,
             email: email,
             mat_khau: password,
+            otp: verificationCode,
+            hashedOTP: hashedOTP,
           }),
         }
       );
@@ -65,7 +128,6 @@ export default function SignupScreen() {
             },
           },
         ]);
-        // Lưu token hoặc điều hướng
         console.log("Data:", data.data);
       } else {
         // Đăng nhập thất bại
@@ -77,6 +139,18 @@ export default function SignupScreen() {
     }
   };
 
+  useEffect(() => {
+    let timer: any;
+    if (isCountdownActive && countdown > 0) {
+      timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+    }
+    if (countdown === 0) {
+      setIsCountdownActive(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isCountdownActive, countdown]);
   return (
     <View style={styles.container}>
       {/* Back Button */}
@@ -120,47 +194,88 @@ export default function SignupScreen() {
         onChangeText={(text) => setEmail(text)}
       />
       <View style={styles.inputContainer}>
-      <TextInput
-        style={{flex: 1, height: 50, fontSize: 16, color: "#000"}}
-        placeholder="Mật khẩu"
-        placeholderTextColor="#ccc"
-        secureTextEntry={!isPasswordVisible}
-        value={password}
-        onChangeText={(text) => setPassword(text)}
-      />
-      <TouchableOpacity
-        style={styles.eyeIcon}
-        onPress={() => setPasswordVisible(!isPasswordVisible)} // Đảo ngược trạng thái
-      >
-        <Icon
-          name={isPasswordVisible ? 'eye-off' : 'eye'} // Thay đổi icon theo trạng thái
-          size={20}
-          color="#555"
+        <TextInput
+          style={{ flex: 1, height: 50, fontSize: 16, color: "#000" }}
+          placeholder="Mật khẩu"
+          placeholderTextColor="#ccc"
+          secureTextEntry={!isPasswordVisible}
+          value={password}
+          onChangeText={(text) => setPassword(text)}
         />
-      </TouchableOpacity>
-    </View>
-    
-    <View style={styles.inputContainer}>
-      <TextInput
-        style={{flex: 1, height: 50, fontSize: 16, color: "#000"}}
-        placeholder="Nhập lại mật khẩu"
-        placeholderTextColor="#ccc"
-        secureTextEntry={!isPasswordValidVisible}
-        value={passwordValid}
-        onChangeText={(text) => setPasswordValid(text)}
-      />
-      <TouchableOpacity
-        style={styles.eyeIcon}
-        onPress={() => setPasswordValidVisible(!isPasswordValidVisible)} // Đảo ngược trạng thái
-      >
-        <Icon
-          name={isPasswordValidVisible ? 'eye-off' : 'eye'} // Thay đổi icon theo trạng thái
-          size={20}
-          color="#555"
-        />
-      </TouchableOpacity>
-
+        <TouchableOpacity
+          style={styles.eyeIcon}
+          onPress={() => setPasswordVisible(!isPasswordVisible)} // Đảo ngược trạng thái
+        >
+          <Icon
+            name={isPasswordVisible ? "eye-off" : "eye"} // Thay đổi icon theo trạng thái
+            size={20}
+            color="#555"
+          />
+        </TouchableOpacity>
       </View>
+
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={{ flex: 1, height: 50, fontSize: 16, color: "#000" }}
+          placeholder="Nhập lại mật khẩu"
+          placeholderTextColor="#ccc"
+          secureTextEntry={!isPasswordValidVisible}
+          value={passwordValid}
+          onChangeText={(text) => setPasswordValid(text)}
+        />
+        <TouchableOpacity
+          style={styles.eyeIcon}
+          onPress={() => setPasswordValidVisible(!isPasswordValidVisible)} // Đảo ngược trạng thái
+        >
+          <Icon
+            name={isPasswordValidVisible ? "eye-off" : "eye"} // Thay đổi icon theo trạng thái
+            size={20}
+            color="#555"
+          />
+        </TouchableOpacity>
+      </View>
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          height: 50,
+          backgroundColor: "#fff",
+          borderRadius: 25,
+          paddingHorizontal: 5,
+          marginVertical: 10,
+        }}
+      >
+        <TextInput
+          style={{
+            flex: 1,
+            height: 50,
+            backgroundColor: "#fff",
+            borderRadius: 25,
+            marginLeft: 10,
+            justifyContent: "space-between",
+            marginVertical: 10,
+            fontSize: 16,
+            color: "#000",
+          }}
+          placeholder="Nhập mã OTP trong email"
+          value={verificationCode}
+          onChangeText={handleOTPChange}
+        />
+        <TouchableOpacity
+          style={[
+            styles.button,
+            isCountdownActive ? styles.disabledButton : null,
+          ]}
+          onPress={handleResendVerificationCode}
+          disabled={isCountdownActive}
+        >
+          <Text style={styles.buttonText}>
+            {isCountdownActive ? `Gửi lại sau ${countdown}s` : "Gửi mã OTP"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Login Button */}
       <TouchableOpacity onPress={handleSignUp} style={styles.loginButton}>
         <Text style={styles.loginText}>ĐĂNG KÝ</Text>
@@ -249,8 +364,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     height: 50,
     backgroundColor: "#fff",
     borderRadius: 25,
@@ -259,5 +374,29 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: 5,
+  },
+  list_items: {
+    marginVertical: 1,
+    width: "100%",
+    padding: 10,
+    justifyContent: "space-between",
+    backgroundColor: "white",
+  },
+  button: {
+    // width: "40%",
+    backgroundColor: "#1e3799",
+    borderRadius: 50,
+    justifyContent: "center",
+    // marginLeft: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+  },
+  disabledButton: {
+    backgroundColor: "gray",
   },
 });

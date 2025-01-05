@@ -4,18 +4,15 @@ import { Image } from "expo-image";
 import { Link, useRouter } from "expo-router";
 import { useState } from "react";
 import { Dimensions, TouchableOpacity } from "react-native";
+import { Alert } from "react-native";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 
-// [{"createdAt": null, "gia_tien": "150000", "gioi_tinh": "Nam", "hinh_anh_kieu_toc": [[Object], [Object], [Object]],
-//  "id": 1, "kieu_toc_phu_hop": [[Object], [Object]], "mo_ta": "Kiểu tóc dài hiện đại",
-// "ten_kieu_toc": "Tóc dài", "updatedAt": "2024-11-28T08:13:31.000Z"},
-
 interface HairCardItemProps {
   id: number;
   ten_kieu_toc: string;
-  gia_tien: number;
+  gia_tien: string;
   mo_ta: string;
   gioi_tinh: string;
   thoi_luong: number;
@@ -23,6 +20,16 @@ interface HairCardItemProps {
     id: number;
     id_kieu_toc: number;
     url_anh: string;
+    createdAt: string | null;
+    updatedAt: string | null;
+  }[];
+  danh_gia_kieu_toc: {
+    id: number;
+    id_khach_hang: number;
+    id_kieu_toc: number;
+    id_chi_tiet_phieu_dat: number;
+    muc_do_hai_long: number;
+    phan_hoi: string;
     createdAt: string | null;
     updatedAt: string | null;
   }[];
@@ -52,6 +59,7 @@ export default function HairCardItem({
   thoi_luong,
   gioi_tinh,
   hinh_anh_kieu_toc,
+  danh_gia_kieu_toc,
   kieu_toc_phu_hop,
 }: HairCardItemProps) {
   const router = useRouter();
@@ -62,6 +70,12 @@ export default function HairCardItem({
   const { user, setUser } = useUser();
   const { booking, setBooking } = useBooking();
 
+  const rating =
+    danh_gia_kieu_toc.reduce(
+      (sum, { muc_do_hai_long }) => sum + muc_do_hai_long,
+      0
+    ) / danh_gia_kieu_toc.length;
+
   const item = {
     id,
     ten_kieu_toc,
@@ -69,6 +83,8 @@ export default function HairCardItem({
     mo_ta,
     thoi_luong,
     hinh_anh_kieu_toc,
+    trung_binh_danh_gia: rating,
+    danh_gia_kieu_toc,
     gioi_tinh,
     // rating,
     kieu_toc_phu_hop,
@@ -76,28 +92,37 @@ export default function HairCardItem({
   return (
     <TouchableOpacity
       onPress={() =>
-        router.push({
-          pathname: "/hairDetail",
-          params: { item: JSON.stringify(item) },
-        })
+        // router.push({
+        //   pathname: "/hairDetail",
+        //   params: { parsedId: id },
+        // })
+        router.push(`/hairDetail?idHair=${id}`)
       }
       style={styles.cardContainer}
     >
       {/* <View > */}
       {/* Ảnh dịch vụ */}
       <View style={styles.imageContainer}>
-        <Image source={hinh_anh_kieu_toc[0].url_anh} style={styles.image} />
-
+        <Image
+          //Hiển thị full chiều rộng
+          source={hinh_anh_kieu_toc[0].url_anh}
+          style={styles.image}
+        />
 
         {/* Đánh giá */}
-        <View style={styles.ratingContainer}>
-          <Icon name="star" size={16} color="#FFD700" />
-          <Text style={styles.ratingText}>
-            {/* {rating} */}
-            4.3
-            <Text style={{ fontSize: 12, color: "#fff" }}>/5</Text>
-          </Text>
-        </View>
+        {isNaN(rating) ? (
+          <View style={styles.ratingContainer}>
+            <Icon name="star-outline" size={16} color="#FFD700" />
+          </View>
+        ) : (
+          <View style={styles.ratingContainer}>
+            <Icon name="star" size={16} color="#FFD700" />
+            <Text style={styles.ratingText}>
+              {rating.toFixed(1)}
+              <Text style={{ fontSize: 12, color: "#fff" }}>/5</Text>
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Tên và thông tin dịch vụ */}
@@ -108,78 +133,83 @@ export default function HairCardItem({
         </View>
 
         {/* Biểu tượng đặt lịch hẹn */}
-        <TouchableOpacity
-          // onPress={() => router.push("/bookAppt")}
-          //in ra thong tin cua kieu toc
-          onPress={() => {
-            if (user === null) {
-              router.push("/login");
-            } else {
-              if (booking) {
-                // Tạo bản sao của chi_tiet_phieu_dat
-                const updatedChiTietPhieuDat = [
-                  ...booking.chi_tiet_phieu_dat,
-                ];
-                // Cập nhật kiểu tóc cho phần tử đầu tiên
-                if (updatedChiTietPhieuDat[0]) {
-                  updatedChiTietPhieuDat[0] = {
-                    ...updatedChiTietPhieuDat[0], // Giữ nguyên các thuộc tính khác
-                    kieu_toc: {
-                      id_kieu_toc: item.id, // Cập nhật id kiểu tóc
-                      ten_kieu_toc: item.ten_kieu_toc,
-                      gia: Number(item.gia_tien),
-                      hinh_anh: item.hinh_anh_kieu_toc[0].url_anh,
-                    }, // Cập nhật kieu_toc
-                  };
-                }
-                // Cập nhật lại booking với chi_tiet_phieu_dat mới
-                setBooking({
-                  ...booking, // Giữ nguyên các thuộc tính khác của booking
-                  chi_tiet_phieu_dat: updatedChiTietPhieuDat, // Gán chi_tiet_phieu_dat mới
-                });
-              } else {
-                const now = new Date();
-                const today = new Date(
-                  now.getTime() + 7 * 60 * 60 * 1000
+        <View>
+          <TouchableOpacity
+            // onPress={() => router.push("/bookAppt")}
+            //in ra thong tin cua kieu toc
+            onPress={() => {
+              if (user === null) {
+                router.push("/login");
+              } else if (user.trang_thai_tai_khoan == "Bị khóa") {
+                Alert.alert(
+                  "Cảnh báo",
+                  "Tài khoản bạn đã bị khóa chức năng đặt lịch hẹn do vi phạm nhiều lần"
                 );
-
-                const tomorow = new Date();
-                tomorow.setDate(tomorow.getDate() + 1);
-                const data = {
-                  id_tai_khoan: user.id,
-                  ngay_hen: tomorow,
-                  gio_hen: "",
-                  phuong_thuc_thanh_toan: "Tiền mặt",
-                  tong_tien: 0,
-                  thoi_gian_dat: today,
-                  chi_tiet_phieu_dat: [
-                    {
-                      ten_khach_hang: user.ho_ten,
+              } else {
+                if (booking) {
+                  // Tạo bản sao của chi_tiet_phieu_dat
+                  const updatedChiTietPhieuDat = [
+                    ...booking.chi_tiet_phieu_dat,
+                  ];
+                  // Cập nhật kiểu tóc cho phần tử cuối cùng
+                  if (updatedChiTietPhieuDat[updatedChiTietPhieuDat.length - 1]) {
+                    updatedChiTietPhieuDat[updatedChiTietPhieuDat.length - 1] = {
+                      ...updatedChiTietPhieuDat[updatedChiTietPhieuDat.length - 1], // Giữ nguyên các thuộc tính khác
                       kieu_toc: {
-                        id_kieu_toc: 0,
-                        ten_kieu_toc: "",
-                        gia: 0,
-                        hinh_anh: "",
-                      },
-                      dich_vu: [
-                        {
-                          id_dich_vu: 0,
-                          ten_dich_vu: "",
-                          phi_dich_vu: 0,
+                        id_kieu_toc: item.id, // Cập nhật id kiểu tóc
+                        ten_kieu_toc: item.ten_kieu_toc,
+                        gia: Number(item.gia_tien),
+                        hinh_anh: item.hinh_anh_kieu_toc[0].url_anh,
+                      }, // Cập nhật kieu_toc
+                    };
+                  }
+                  // Cập nhật lại booking với chi_tiet_phieu_dat mới
+                  setBooking({
+                    ...booking, // Giữ nguyên các thuộc tính khác của booking
+                    chi_tiet_phieu_dat: updatedChiTietPhieuDat, // Gán chi_tiet_phieu_dat mới
+                  });
+                } else {
+                  const now = new Date();
+                  const today = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+
+                  const tomorow = new Date();
+                  tomorow.setDate(tomorow.getDate());
+                  const data = {
+                    id_tai_khoan: user.id,
+                    ngay_hen: tomorow,
+                    gio_hen: "",
+                    phuong_thuc_thanh_toan: "Tiền mặt",
+                    tong_tien: 0,
+                    thoi_gian_dat: today,
+                    chi_tiet_phieu_dat: [
+                      {
+                        ten_khach_hang: user.ho_ten,
+                        kieu_toc: {
+                          id_kieu_toc: 0,
+                          ten_kieu_toc: "",
+                          gia: 0,
+                          hinh_anh: "",
                         },
-                      ],
-                    },
-                  ],
-                };
-                setBooking(data);
-              }              
-              router.push("/bookAppt");
-            }
-          }}
-          style={styles.iconBookingContainer}
-        >
-          <Icon name="calendar" size={20} color="#fff" />
-        </TouchableOpacity>
+                        dich_vu: [
+                          {
+                            id_dich_vu: 0,
+                            ten_dich_vu: "",
+                            phi_dich_vu: 0,
+                          },
+                        ],
+                      },
+                    ],
+                  };
+                  setBooking(data);
+                }
+                router.push("/bookAppt");
+              }
+            }}
+            style={styles.iconBookingContainer}
+          >
+            <Icon name="calendar" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
       {/* </View> */}
     </TouchableOpacity>
@@ -193,6 +223,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginRight: 10,
     marginBottom: 15,
+    borderRadius: 10,
     elevation: 3,
   },
   imageContainer: {
@@ -200,7 +231,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 120,
+    height: 190,
   },
   iconHeart: {
     position: "absolute",

@@ -1,9 +1,10 @@
-import React from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, Image, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { Ionicons, FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { API_BASE_URL } from "@/Localhost";
 import { useUser } from "@/context/UserContext";
+import { useIsFocused } from "@react-navigation/native";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -11,17 +12,56 @@ export default function ProfileScreen() {
 
   const logOut = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/logout`, {
-        method: "GET",
-      });
-      if (response.ok) {
-        router.push("/login");
-        setUser(null);
-      }
+      Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Đăng xuất",
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/api/logout`, {
+                method: "GET",
+              });
+              if (response.ok) {
+                router.push("/login");
+                setUser(null);
+              }
+            } catch (error) {
+              console.log("Error logging out", error);
+            }
+          },
+        },
+      ]);
     } catch (error) {
       console.log("Error logging out", error);
     }
   };
+
+
+  const getUserInfo = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/customers/getCustomerById/${user!.id}`, {
+        method: "GET",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.data);
+      }
+    } catch (error) {
+      console.log("Error getting user info", error);
+    }
+  }
+  
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (isFocused) {
+      if (user) {
+        getUserInfo();
+      }
+    }
+  }, [isFocused]);
 
   return (
     <View style={styles.container}>
@@ -96,21 +136,21 @@ export default function ProfileScreen() {
           <FontAwesome5 name="heart" size={20} color="#555" />
           <Text style={styles.menuText}>Danh sách yêu thích</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
+        {/* <TouchableOpacity style={styles.menuItem}>
           <FontAwesome5 name="credit-card" size={20} color="#555" />
           <Text style={styles.menuText}>Phương thức thanh toán</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <TouchableOpacity style={styles.menuItem}>
           <Ionicons name="person-outline" size={20} color="#555" />
           <Text style={styles.menuText}>Cập nhật thông tin tài khoản</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem}>
-          <MaterialIcons name="local-offer" size={20} color="#555" />
-          <Text style={styles.menuText}>Khuyến mãi</Text>
+          <MaterialIcons name="lock-reset" size={20} color="#555" />
+          <Text style={styles.menuText}>Đổi mật khẩu</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem}>
-          <Ionicons name="settings-outline" size={20} color="#555" />
-          <Text style={styles.menuText}>Cài đặt</Text>
+          <Ionicons name="document-text-outline" size={20} color="#555" />
+          <Text style={styles.menuText}>Điều khoản sử dụng</Text>
         </TouchableOpacity>
       </View>
 
